@@ -1,5 +1,5 @@
 use swc_core::{ecma::{
-    ast::{Program, Stmt, IfStmt, BinExpr, op, Lit, MemberExpr, Ident},
+    ast::{Program, Stmt, IfStmt, Expr, BinExpr, op, Lit, MemberExpr, Ident, UnaryExpr, CallExpr, ExprOrSpread, ExprStmt, BlockStmt},
     transforms::testing::test,
     visit::{as_folder, FoldWith, VisitMut, VisitMutWith},
 }, common::{DUMMY_SP, util::take::Take}};
@@ -8,6 +8,105 @@ use swc_core::plugin::{plugin_transform, proxies::TransformPluginProgramMetadata
 
 pub struct TransformVisitor;
 
+fn dev_expression() -> Box<Expr> {
+    BinExpr{ 
+        span: DUMMY_SP, 
+        op: op!("!=="), 
+        left: Lit::Str("production".into()).into(), 
+        right: MemberExpr{ 
+            span: DUMMY_SP, 
+            obj: MemberExpr{
+                span: DUMMY_SP,
+                obj: Ident::new("process".into(), DUMMY_SP).into(),
+                prop: Ident::new("env".into(), DUMMY_SP).into(),
+            }.into(), 
+            prop: Ident::new("NODE_ENV".into(), DUMMY_SP).into() 
+        }.into() 
+    }.into()
+}
+
+// Transforms
+// `warning(condition, "argument", argument);"`
+// into
+// `if ("production" !== process.env.NODE_ENV) {
+//      warning(condition, "argument", argument);
+//  }`
+fn wrap_in_if_not_prod(stmt: Stmt, alt: Option<Stmt>) -> Stmt {
+    let boxed_alt = alt.map(|s| Box::new(Stmt::from(BlockStmt{ span: DUMMY_SP, stmts: vec![s] })));
+    Stmt::from(IfStmt{
+        span: DUMMY_SP,
+        test: dev_expression(),
+        cons: Box::new(Stmt::from(BlockStmt{ span: DUMMY_SP, stmts: vec![stmt] })),
+        alt: boxed_alt,
+    })
+}
+
+
+// Transforms 
+//  `invariant(condition, argument, argument);`
+// into
+//  `if (!condition) {
+//      if ("production" !== process.env.NODE_ENV) {
+//          invariant(false, argument, argument);
+//      } else {
+//          invariant(false);
+//      }
+//  }`
+fn wrap_invariant(invariant: &mut CallExpr) -> Stmt {
+    if invariant.args.is_empty() {return Stmt::dummy()}
+    if invariant.args[0].spread.is_some() {return Stmt::dummy()}
+    let condition = match invariant.args.len() {
+        0 => {return Stmt::dummy()},
+        _ => {match invariant.args[0].spread {
+            Some(_) => {return Stmt::dummy()}
+            None => {invariant.args[0].expr.take()}
+        }}
+    };
+
+    let not_condition= UnaryExpr{
+        span: DUMMY_SP, 
+        op: op!("!"), 
+        arg: condition
+    };
+
+    let false_expr = ExprOrSpread{
+        spread: None,
+        expr: false.into()
+    };
+
+    let invariant_no_args = ExprStmt{
+        span: DUMMY_SP,
+        expr: CallExpr{
+            span: DUMMY_SP,
+            callee: invariant.callee.clone(),
+            args: vec![false_expr.clone()],
+            type_args: None,
+        }.into()
+    }.into();
+
+    let mut args = invariant.args.take();
+    args[0] = false_expr;
+    let invariant_with_args = ExprStmt{
+        span: DUMMY_SP,
+        expr: CallExpr{
+            span: DUMMY_SP,
+            callee: invariant.callee.take(),
+            args,
+            type_args: None,
+        }.into()
+    }.into();
+
+    let inner_if = wrap_in_if_not_prod(invariant_with_args, Some(invariant_no_args));
+
+    Stmt::from(IfStmt{
+        span: DUMMY_SP,
+        test: not_condition.into(),
+        cons: Box::new(Stmt::from(BlockStmt{ span: DUMMY_SP, stmts: vec![inner_if] })),
+        alt: None,
+    })
+}
+
+
 impl VisitMut for TransformVisitor {
     // Implement necessary visit_mut_* methods for actual custom transform.
     // A comprehensive list of possible visitor methods can be found here:
@@ -15,12 +114,12 @@ impl VisitMut for TransformVisitor {
     fn visit_mut_stmt(&mut self, stmt: &mut Stmt) {
         stmt.visit_mut_children_with(self);
         
-        let expr_stmt = match stmt.as_expr() {
+        let expr_stmt = match stmt.as_mut_expr() {
             Some(es) => es,
             None => {return}
         };
 
-        let call_expr = match expr_stmt.expr.as_call() {
+        let call_expr = match expr_stmt.expr.as_mut_call() {
             Some(ce) => ce,
             None => {return}
         };
@@ -37,29 +136,14 @@ impl VisitMut for TransformVisitor {
 
         let sym = &*ident.sym;
 
-        if sym != "warning" {return};
-
-        let warning_call = stmt.take();
-        let wrapped_warning = Stmt::from(IfStmt{
-            span: DUMMY_SP,
-            test: BinExpr{ 
-                span: DUMMY_SP, 
-                op: op!("!=="), 
-                left: Lit::Str("production".into()).into(), 
-                right: MemberExpr{ 
-                    span: DUMMY_SP, 
-                    obj: MemberExpr{
-                        span: DUMMY_SP,
-                        obj: Ident::new("process".into(), DUMMY_SP).into(),
-                        prop: Ident::new("env".into(), DUMMY_SP).into(),
-                    }.into(), 
-                    prop: Ident::new("NODE_ENV".into(), DUMMY_SP).into() 
-                }.into() 
-            }.into(),
-            cons: Box::new(warning_call),
-            alt: None,
-        });
-        *stmt = wrapped_warning;
+        match sym {
+            "warning" => {
+                *stmt = wrap_in_if_not_prod(stmt.take(), None);
+            },
+            "invariant" => {
+                *stmt = wrap_invariant(call_expr);},
+            _ => {}
+        }
     }
 }
 
@@ -92,18 +176,23 @@ test!(
     |_| as_folder(TransformVisitor),
     warning_substitution,
     // Input codes
-    r#"warning(true, "a", "b");"#,
+    r#"warning(condition, "argument", argument);"#,
     // Output codes after transformed with plugin
-    r#"if ("production" !== process.env.NODE_ENV) warning(true, "a", "b");"#
+    r#"if ("production" !== process.env.NODE_ENV) {warning(condition, "argument", argument);}"#
 );
 
 test!(
-    ignore,
     Default::default(),
     |_| as_folder(TransformVisitor),
-    warning_import_substitution,
+    invariant_substitution,
     // Input codes
-    r#"import {warning as w} from "warning"; w(true, "a", "b");"#,
+    r#"invariant(condition, argument, argument);"#,
     // Output codes after transformed with plugin
-    r#"import {warning as w} from "warning"; if ("production" !== process.env.NODE_ENV) w(true, "a", "b");"#
+    r#"if (!condition) {
+        if ("production" !== process.env.NODE_ENV) {
+          invariant(false, argument, argument);
+        } else {
+          invariant(false);
+        }
+      }"#
 );
