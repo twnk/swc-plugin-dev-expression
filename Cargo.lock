@@ -1251,8 +1251,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "swc-plugin-no-warning-in-prod"
-version = "0.1.0"
+name = "swc-plugin-dev-expression"
+version = "0.2.0"
 dependencies = [
  "serde",
  "swc_core",

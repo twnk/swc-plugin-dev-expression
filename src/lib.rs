@@ -1,13 +1,45 @@
+/* This program is free software: you can redistribute it and/or modify it 
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) 
+ * any later version.
+
+ * This program is distributed in the hope that it will be useful, but 
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY 
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License 
+ * for more details.
+
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+
 use swc_core::{ecma::{
-    ast::{Program, Stmt, IfStmt, Expr, BinExpr, op, Lit, MemberExpr, Ident, UnaryExpr, CallExpr, ExprOrSpread, ExprStmt, BlockStmt},
+    ast::{
+        BinExpr,
+        BlockStmt,
+        CallExpr, 
+        CondExpr, 
+        Expr, 
+        ExprOrSpread, 
+        ExprStmt, 
+        Ident, 
+        IfStmt, 
+        Lit,
+        MemberExpr, 
+        op, 
+        ParenExpr, 
+        Program, 
+        Stmt, 
+        UnaryExpr, 
+        UnaryOp, 
+    },
     transforms::testing::test,
     visit::{as_folder, FoldWith, VisitMut, VisitMutWith},
 }, common::{DUMMY_SP, util::take::Take}};
 use swc_core::plugin::{plugin_transform, proxies::TransformPluginProgramMetadata};
 
-
 pub struct TransformVisitor;
 
+// Returns the __DEV__ transformation `"production" !== process.env.NODE_ENV`
 fn dev_expression() -> Box<Expr> {
     BinExpr{ 
         span: DUMMY_SP, 
@@ -108,9 +140,8 @@ fn wrap_invariant(invariant: &mut CallExpr) -> Stmt {
 
 
 impl VisitMut for TransformVisitor {
-    // Implement necessary visit_mut_* methods for actual custom transform.
-    // A comprehensive list of possible visitor methods can be found here:
-    // https://rustdoc.swc.rs/swc_ecma_visit/trait.VisitMut.html
+
+    // Visits statements, matching function calls to invariant or warning
     fn visit_mut_stmt(&mut self, stmt: &mut Stmt) {
         stmt.visit_mut_children_with(self);
         
@@ -145,32 +176,108 @@ impl VisitMut for TransformVisitor {
             _ => {}
         }
     }
+
+    // Visits !unary expressions, looking for __DEV__
+    fn visit_mut_unary_expr(&mut self, expr: &mut UnaryExpr) {
+        expr.visit_mut_children_with(self);
+
+        match expr.op {
+            UnaryOp::Bang => {},
+            _ => {return}
+        }
+
+        let ident = match expr.arg.as_ident() {
+            Some(i) => i,
+            None => {return}
+        };
+
+        let sym = &*ident.sym;
+
+        if let "__DEV__" = sym {
+            expr.arg = ParenExpr{
+                span: DUMMY_SP,
+                expr: dev_expression()
+            }.into();
+        };
+    }
+
+    // Visits binary (`&&`,`||`) expressions, looking for __DEV__
+    fn visit_mut_bin_expr(&mut self, expr: &mut BinExpr) {
+        expr.visit_mut_children_with(self);
+
+        match expr.op {
+            swc_core::ecma::ast::BinaryOp::LogicalOr => {},
+            swc_core::ecma::ast::BinaryOp::LogicalAnd => {},
+            _ => {return}
+        }
+
+        match expr.left.as_ident() {
+            Some(ident) => {
+                let sym = &*ident.sym;
+
+                if let "__DEV__" = sym {
+                    *expr.left = ParenExpr{
+                        span: DUMMY_SP,
+                        expr: dev_expression()
+                    }.into();
+                };
+            },
+            None => {}
+        };
+
+        match expr.right.as_ident() {
+            Some(ident) => {
+                let sym = &*ident.sym;
+
+                if let "__DEV__" = sym {
+                    *expr.right = ParenExpr{
+                        span: DUMMY_SP,
+                        expr: dev_expression()
+                    }.into();
+                };
+            },
+            None => {}
+        };
+    }
+
+    // Visits conditional expressions `cond ? true : false`, looking for __DEV__
+    fn visit_mut_cond_expr(&mut self, expr: &mut CondExpr) {
+        expr.visit_mut_children_with(self);
+
+        let ident = match expr.test.as_ident() {
+            Some(i) => i,
+            None => {return}
+        };
+
+        let sym = &*ident.sym;
+
+        if let "__DEV__" = sym {
+            expr.test = dev_expression();
+        };
+    }
+
+    // Visits if statements, looking for __DEV__
+    fn visit_mut_if_stmt(&mut self, stmt: &mut IfStmt) {
+        stmt.visit_mut_children_with(self);
+
+        let ident = match stmt.test.as_ident() {
+            Some(i) => i,
+            None => {return}
+        };
+
+        let sym = &*ident.sym;
+
+        if let "__DEV__" = sym {
+            stmt.test = dev_expression();
+        };
+    }
 }
 
-/// An example plugin function with macro support.
-/// `plugin_transform` macro interop pointers into deserialized structs, as well
-/// as returning ptr back to host.
-///
-/// It is possible to opt out from macro by writing transform fn manually
-/// if plugin need to handle low-level ptr directly via
-/// `__transform_plugin_process_impl(
-///     ast_ptr: *const u8, ast_ptr_len: i32,
-///     unresolved_mark: u32, should_enable_comments_proxy: i32) ->
-///     i32 /*  0 for success, fail otherwise.
-///             Note this is only for internal pointer interop result,
-///             not actual transform result */`
-///
-/// This requires manual handling of serialization / deserialization from ptrs.
-/// Refer swc_plugin_macro to see how does it work internally.
 #[plugin_transform]
 pub fn process_transform(program: Program, _metadata: TransformPluginProgramMetadata) -> Program {
     program.fold_with(&mut as_folder(TransformVisitor))
 }
 
-// An example to test plugin transform.
-// Recommended strategy to test plugin's transform is verify
-// the Visitor's behavior, instead of trying to run `process_transform` with mocks
-// unless explicitly required to do so.
 test!(
     Default::default(),
     |_| as_folder(TransformVisitor),
@@ -195,4 +302,54 @@ test!(
           invariant(false);
         }
       }"#
+);
+
+test!(
+    Default::default(),
+    |_| as_folder(TransformVisitor),
+    cond_dev_expr,
+    // Input codes
+    r#"const x = __DEV__ ? 'a' : 'b';"#,
+    // Output codes after transformed with plugin
+    r#"const x = "production" !== process.env.NODE_ENV ? 'a' : 'b';"#
+);
+
+test!(
+    Default::default(),
+    |_| as_folder(TransformVisitor),
+    if_dev_expr,
+    // Input codes
+    r#"if (__DEV__) {toot()}"#,
+    // Output codes after transformed with plugin
+    r#"if ("production" !== process.env.NODE_ENV) {toot();}"#
+);
+
+test!(
+    Default::default(),
+    |_| as_folder(TransformVisitor),
+    unary_dev_expr_not,
+    // Input codes
+    r#"if (!__DEV__) {dont_toot()}"#,
+    // Output codes after transformed with plugin
+    r#"if (!("production" !== process.env.NODE_ENV)) {dont_toot();}"#
+);
+
+test!(
+    Default::default(),
+    |_| as_folder(TransformVisitor),
+    binary_dev_expr_and,
+    // Input codes
+    r#"__DEV__ && true"#,
+    // Output codes after transformed with plugin
+    r#""production" !== process.env.NODE_ENV && true;"#
+);
+
+test!(
+    Default::default(),
+    |_| as_folder(TransformVisitor),
+    binary_dev_expr_or,
+    // Input codes
+    r#"__DEV__ || false"#,
+    // Output codes after transformed with plugin
+    r#""production" !== process.env.NODE_ENV || false;"#
 );

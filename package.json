@@ -1,11 +1,11 @@
 {
-    "name": "swc-plugin-no-warning-in-prod",
-    "version": "0.1.0",
-    "description": "",
-    "author": "",
-    "license": "ISC",
-    "keywords": ["swc-plugin"],
-    "main": "target/wasm32-wasi/release/swc-plugin-no-warning-in-prod.wasm",
+    "name": "swc-plugin-dev-expression",
+    "version": "0.2.0",
+    "description": "An swc port of facebook's babel-plugin-dev-expression. Replaces __DEV__, wraps warning and invariant calls.",
+    "author": "Angel Wells",
+    "license": "GPL-3.0+",
+    "keywords": ["swc-plugin", "invariant", "warning", "dev-expression", "react", "facebook"],
+    "main": "target/wasm32-wasi/release/swc-plugin-dev-expression.wasm",
     "scripts": {
         "prepublishOnly": "cargo build-wasi --release"
     },
