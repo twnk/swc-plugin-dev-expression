@@ -1252,7 +1252,7 @@ dependencies = [
 
 [[package]]
 name = "swc-plugin-dev-expression"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "swc_core",
