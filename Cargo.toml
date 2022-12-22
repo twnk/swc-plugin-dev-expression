@@ -1,6 +1,6 @@
 [package]
 name = "swc-plugin-dev-expression"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["Angel Wells"]
 license = "GPL-3.0-or-later"
@@ -16,11 +16,11 @@ crate-type = ["cdylib"]
 codegen-units = 1
 lto = true
 opt-level = "s"
-strip = "symbols"
+# strip = "symbols"
 
 [dependencies]
 serde = "1"
-swc_core = { version = "0.44.*", features = ["plugin_transform"] }
+swc_core = { version = "0.50.*", features = ["ecma_plugin_transform"] }
 tracing = "0.1"
 
 # .cargo/config defines few alias to build plugin.

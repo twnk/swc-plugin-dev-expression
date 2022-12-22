@@ -1,6 +1,6 @@
 {
     "name": "swc-plugin-dev-expression",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "An swc port of facebook's babel-plugin-dev-expression. Replaces __DEV__, wraps warning and invariant calls.",
     "author": "Angel Wells",
     "license": "GPL-3.0+",
