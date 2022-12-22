@@ -7,6 +7,7 @@ license = "GPL-3.0-or-later"
 description = "A port for SWC of babel-plugin-dev-expression, which expands __DEV__ and wraps invariant and warning calls"
 categories = ["wasm", "parsing"]
 keywords = ["swc", "plugin"]
+repository = "https://github.com/twnk/swc-plugin-dev-expression"
 
 [lib]
 crate-type = ["cdylib"]
