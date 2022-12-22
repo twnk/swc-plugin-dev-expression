@@ -8,31 +8,30 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions: 
       contents: read
       packages: write 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-node@v3
-      with:
-        node-version: '16.x'
-        registry-url: 'https://npm.pkg.github.com'
-        # Defaults to the user or organization that owns the workflow file
-    - uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          override: true
-    - name: Build Crate
-      run: cargo build-wasi --verbose --release
-    - name: Publish Crate
-      uses: katyo/publish-crates@v1
-      with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-    - name: Build NPM Package
-      run: npm ci
-    - name: Publish NPM Package
-      run: npm publish
-      env: 
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://npm.pkg.github.com'
+          # Defaults to the user or organization that owns the workflow file
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+      - name: Build Crate
+        run: cargo build-wasi --verbose --release
+      - name: Publish Crate
+        uses: katyo/publish-crates@v1
+        with:
+            registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Build NPM Package
+        run: npm ci
+      - name: Publish NPM Package
+        run: npm publish
+        env: 
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
