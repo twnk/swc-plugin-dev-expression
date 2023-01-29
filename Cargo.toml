@@ -1,6 +1,6 @@
 [package]
 name = "swc-plugin-dev-expression"
-version = "0.2.3"
+version = "0.2.8"
 edition = "2021"
 authors = ["Angel Wells"]
 license = "GPL-3.0-or-later"
@@ -13,15 +13,28 @@ repository = "https://github.com/twnk/swc-plugin-dev-expression"
 crate-type = ["cdylib"]
 
 [profile.release]
+# This removes more dead code
 codegen-units = 1
 lto = true
+# Optimize for size
 opt-level = "s"
-# strip = "symbols"
+# Optimize for performance, this is default so you don't need to specify it
+# opt-level = "z"
+ 
+# Strip debug symbols
+strip = "symbols"
+
 
 [dependencies]
 serde = "1"
-swc_core = { version = "0.50.*", features = ["ecma_plugin_transform"] }
-tracing = "0.1"
+swc_core = {version = "0.59.4", features = [
+    "ecma_plugin_transform",
+    "ecma_utils",
+    "ecma_visit",
+    "ecma_ast",
+    "common",
+]}
+tracing = { version = "0.1" }
 
 # .cargo/config defines few alias to build plugin.
 # cargo build-wasi generates wasm-wasi32 binary
