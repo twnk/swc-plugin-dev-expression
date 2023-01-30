@@ -21,16 +21,30 @@ jobs:
           # Defaults to the user or organization that owns the workflow file
       - uses: actions-rs/toolchain@v1
         with:
-            toolchain: nightly
+            toolchain: nightly-2022-09-23
             target: wasm32-wasi
             profile: minimal
             override: true
-      # - name: Check Crate
-      #   run: cargo check
-      # - name: Test Crate
-      #   run: cargo test
+            components: rustfmt, clippy
+      - name: Format Crate
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Check Crate
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+      - name: Test Crate
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
       - name: Build Crate
-        run: cargo build-wasi --verbose --release
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build-wasi
+          args: --verbose --release
       - name: Publish Crate
         uses: katyo/publish-crates@v1
         with:

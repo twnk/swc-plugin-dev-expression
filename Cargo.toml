@@ -1,6 +1,6 @@
 [package]
 name = "swc-plugin-dev-expression"
-version = "0.2.10"
+version = "0.2.11"
 edition = "2021"
 authors = ["Angel Wells"]
 license = "GPL-3.0-or-later"
@@ -27,7 +27,7 @@ strip = "symbols"
 
 [dependencies]
 serde = "1"
-swc_core = {version = "0.59.4", features = [
+swc_core = {version = "0.59.5", features = [
     "ecma_plugin_transform",
     "ecma_utils",
     "ecma_visit",

@@ -1,6 +1,6 @@
 {
     "name": "swc-plugin-dev-expression",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "description": "An swc port of facebook's babel-plugin-dev-expression. Replaces __DEV__, wraps warning and invariant calls.",
     "author": "Angel Wells",
     "license": "GPL-3.0+",
@@ -9,5 +9,8 @@
     "scripts": {
         "prepublishOnly": "cargo build-wasi --release && cp target/wasm32-wasi/release/swc_plugin_dev_expression.wasm ."
     },
-    "files": []
+    "files": [],
+    "devDependencies": {
+        "@swc/core": "^1.3.30"
+    }
 }
