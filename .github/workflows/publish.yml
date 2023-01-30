@@ -21,8 +21,13 @@ jobs:
           # Defaults to the user or organization that owns the workflow file
       - uses: actions-rs/toolchain@v1
         with:
-            toolchain: stable
-            override: true
+            toolchain: nightly
+            target: wasm32-wasi
+            profile: minimal
+      - name: Check Crate
+        run: cargo check
+      - name: Test Crate
+        run: cargo test
       - name: Build Crate
         run: cargo build-wasi --verbose --release
       - name: Publish Crate
