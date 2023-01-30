@@ -27,21 +27,21 @@ jobs:
             override: true
             components: rustfmt, clippy
       - name: Format Crate
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
       - name: Check Crate
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings
       - name: Test Crate
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: test
       - name: Build Crate
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: build-wasi
           args: --verbose --release
