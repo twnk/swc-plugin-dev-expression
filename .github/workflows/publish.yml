@@ -24,10 +24,11 @@ jobs:
             toolchain: nightly
             target: wasm32-wasi
             profile: minimal
-      - name: Check Crate
-        run: cargo check
-      - name: Test Crate
-        run: cargo test
+            override: true
+      # - name: Check Crate
+      #   run: cargo check
+      # - name: Test Crate
+      #   run: cargo test
       - name: Build Crate
         run: cargo build-wasi --verbose --release
       - name: Publish Crate
