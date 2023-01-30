@@ -220,34 +220,28 @@ impl VisitMut for TransformVisitor {
             _ => return,
         }
 
-        match expr.left.as_ident() {
-            Some(ident) => {
-                let sym = &*ident.sym;
+        if let Some(ident) = expr.left.as_ident() {
+            let sym = &*ident.sym;
 
-                if let "__DEV__" = sym {
-                    *expr.left = ParenExpr {
-                        span: DUMMY_SP,
-                        expr: dev_expression(),
-                    }
-                    .into();
-                };
-            }
-            None => {}
+            if let "__DEV__" = sym {
+                *expr.left = ParenExpr {
+                    span: DUMMY_SP,
+                    expr: dev_expression(),
+                }
+                .into();
+            };
         };
 
-        match expr.right.as_ident() {
-            Some(ident) => {
-                let sym = &*ident.sym;
+        if let Some(ident) = expr.right.as_ident() {
+            let sym = &*ident.sym;
 
-                if let "__DEV__" = sym {
-                    *expr.right = ParenExpr {
-                        span: DUMMY_SP,
-                        expr: dev_expression(),
-                    }
-                    .into();
-                };
-            }
-            None => {}
+            if let "__DEV__" = sym {
+                *expr.right = ParenExpr {
+                    span: DUMMY_SP,
+                    expr: dev_expression(),
+                }
+                .into();
+            };
         };
     }
 
